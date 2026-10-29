@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hourly News Switcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- news-switcher.js puts the YouTube player inside this element -->
+  <div id="player-container"></div>
+
+  <!-- Shown until the browser lets us play sound. Clicking it unmutes. -->
+  <button id="unmute-button" type="button" hidden>🔇 Tap to turn sound on</button>
+
+  <!-- Optional on-screen extras. Toggle with the ☰ button or the "H" key. -->
+  <div id="extras-panel">
+    <div id="now-playing">
+      <span id="channel-name">Loading…</span>
+      <span id="channel-status"></span>
+    </div>
+    <div id="next-up">
+      Next: <span id="next-channel-name">–</span> in <span id="countdown">–</span>
+    </div>
+    <div id="controls">
+      <button id="previous-button" type="button" title="Previous channel (←)">⏮ Prev</button>
+      <button id="next-button" type="button" title="Next channel (→)">Next ⏭</button>
+    </div>
+  </div>
+
+  <button id="toggle-extras-button" type="button" title="Show/hide extras (H)">☰</button>
+
+  <script src="channels.js"></script>
+  <script src="news-switcher.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
