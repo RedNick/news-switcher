@@ -13,7 +13,7 @@
   <!-- Shown until the browser lets us play sound. Clicking it unmutes. -->
   <button id="unmute-button" type="button" hidden>🔇 Tap to turn sound on</button>
 
-  <!-- Optional on-screen extras. Toggle with the ☰ button or the "H" key. -->
+  <!-- Optional on-screen extras. Toggle from the ☰ menu or with the "H" key. -->
   <div id="extras-panel">
     <div id="now-playing">
       <span id="channel-name">Loading…</span>
@@ -28,7 +28,23 @@
     </div>
   </div>
 
-  <button id="toggle-extras-button" type="button" title="Show/hide extras (H)">☰</button>
+  <!-- Settings menu, top middle so it stays clear of YouTube's own buttons
+       in the corners. Open with the ☰ button or the "M" key. -->
+  <div id="menu-area">
+    <button id="menu-button" type="button" title="Settings (M)"
+            aria-controls="settings-menu" aria-expanded="false">☰</button>
+
+    <div id="settings-menu" hidden>
+      <label class="menu-option">
+        <input id="show-extras-checkbox" type="checkbox">
+        Show channel info and controls (H)
+      </label>
+
+      <h2>Sources</h2>
+      <p class="menu-hint">Tick the channels to rotate through. Click a name to watch it now.</p>
+      <ul id="source-list"></ul>
+    </div>
+  </div>
 
   <script src="channels.js"></script>
   <script src="news-switcher.js"></script>

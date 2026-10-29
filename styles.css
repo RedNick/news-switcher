@@ -77,20 +77,102 @@ body.extras-hidden #extras-panel {
   gap: 8px;
 }
 
-#toggle-extras-button {
+/* The menu sits at the top middle, clear of YouTube's corner buttons. */
+#menu-area {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  z-index: 1; /* Open menu covers the unmute button below it. */
+}
+
+#menu-button {
   opacity: 0.4;
 }
 
-#toggle-extras-button:hover {
+#menu-button:hover,
+#menu-button[aria-expanded="true"] {
   opacity: 1;
 }
 
+#settings-menu {
+  width: 280px;
+  max-width: 100%;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  background: rgb(12, 12, 12);
+  border-radius: 8px;
+}
+
+#settings-menu[hidden] {
+  display: none;
+}
+
+#settings-menu h2 {
+  margin: 12px 0 4px;
+  font-size: 1rem;
+}
+
+.menu-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.menu-hint {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+#source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#source-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.watch-button {
+  flex: 1;
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+}
+
+.watch-button:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Highlights the channel that's on now. */
+#source-list li.is-playing .watch-button {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+#source-list li.is-playing .watch-button::after {
+  content: " ● now";
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+/* Just below the menu button, so the two don't overlap. */
 #unmute-button {
   position: fixed;
-  top: 16px;
+  top: 56px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--accent);
