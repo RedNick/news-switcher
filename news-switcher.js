@@ -6,6 +6,9 @@
 // The schedule is worked out from the clock, not from when the page was
 // opened, so every open copy of the page shows the same channel at the same
 // time. The Prev/Next buttons shift the whole rotation by one channel.
+//
+// The ☰ menu lets the viewer choose which channels are in the rotation and
+// jump straight to one. Those choices are saved in this browser.
 
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 const SWITCH_LEAD_MILLISECONDS = SECONDS_BEFORE_HOUR_TO_SWITCH * 1000;
@@ -15,15 +18,21 @@ const SWITCH_LEAD_MILLISECONDS = SECONDS_BEFORE_HOUR_TO_SWITCH * 1000;
 const STREAM_START_TIMEOUT_MILLISECONDS = 30 * 1000;
 
 const EXTRAS_VISIBLE_STORAGE_KEY = "newsSwitcher.extrasVisible";
+const DISABLED_CHANNELS_STORAGE_KEY = "newsSwitcher.disabledChannelIds";
 
 // --- State -----------------------------------------------------------------
 
 let youtubePlayer = null;          // The current YT.Player instance.
+let currentChannel = null;         // The NEWS_CHANNELS entry now playing.
 let currentHourSlot = null;        // Which hourly slot is currently showing.
-let manualChannelOffset = 0;       // Added by Prev/Next and by skipping dead streams.
+let manualChannelOffset = 0;       // Added by Prev/Next, the menu and skipping dead streams.
 let viewerWantsSound = false;      // Becomes true once the viewer unmutes.
 let streamStartTimer = null;       // Watchdog for streams that never start.
 let consecutiveFailedChannels = 0; // Stops us skipping forever if nothing is live.
+
+// Channel IDs the viewer has unticked in the menu. Stored as "disabled"
+// rather than "enabled" so channels added to channels.js later start ticked.
+let disabledChannelIds = new Set(loadSavedList(DISABLED_CHANNELS_STORAGE_KEY));
 
 // --- Page elements ---------------------------------------------------------
 
@@ -35,7 +44,46 @@ const countdownLabel = document.getElementById("countdown");
 const unmuteButton = document.getElementById("unmute-button");
 const previousButton = document.getElementById("previous-button");
 const nextButton = document.getElementById("next-button");
-const toggleExtrasButton = document.getElementById("toggle-extras-button");
+const menuButton = document.getElementById("menu-button");
+const settingsMenu = document.getElementById("settings-menu");
+const showExtrasCheckbox = document.getElementById("show-extras-checkbox");
+const sourceList = document.getElementById("source-list");
+
+// --- Saved settings --------------------------------------------------------
+
+// Storage can be blocked (private browsing etc.), so every access is guarded
+// and the page carries on with defaults.
+function saveSetting(storageKey, value) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(value));
+  } catch (storageError) {
+    // Not saved, but the setting still applies for this visit.
+  }
+}
+
+function loadSetting(storageKey, defaultValue) {
+  try {
+    const savedValue = localStorage.getItem(storageKey);
+    return savedValue === null ? defaultValue : JSON.parse(savedValue);
+  } catch (storageError) {
+    return defaultValue;
+  }
+}
+
+function loadSavedList(storageKey) {
+  const savedList = loadSetting(storageKey, []);
+  return Array.isArray(savedList) ? savedList : [];
+}
+
+// --- Which channels are in the rotation ------------------------------------
+
+function getActiveChannels() {
+  const activeChannels = NEWS_CHANNELS.filter(
+    (channel) => !disabledChannelIds.has(channel.youtubeChannelId)
+  );
+  // Never let the rotation be empty: fall back to every channel.
+  return activeChannels.length > 0 ? activeChannels : NEWS_CHANNELS;
+}
 
 // --- Schedule maths --------------------------------------------------------
 
@@ -49,14 +97,23 @@ function getSlotStartTime(hourSlot) {
   return hourSlot * MILLISECONDS_PER_HOUR - SWITCH_LEAD_MILLISECONDS;
 }
 
-// Wraps any whole number (including negatives) into a valid channel index.
-function wrapChannelIndex(index) {
-  const channelCount = NEWS_CHANNELS.length;
-  return ((index % channelCount) + channelCount) % channelCount;
+// Wraps any whole number (including negatives) into the range 0..count-1.
+function wrapIndex(index, count) {
+  return ((index % count) + count) % count;
 }
 
-function getChannelIndexForSlot(hourSlot) {
-  return wrapChannelIndex(hourSlot + manualChannelOffset);
+function getChannelForSlot(hourSlot) {
+  const activeChannels = getActiveChannels();
+  return activeChannels[wrapIndex(hourSlot + manualChannelOffset, activeChannels.length)];
+}
+
+// Sets the offset so the current slot lands on the given channel. The rotation
+// then carries on in order from there.
+function pointRotationAt(channel) {
+  const activeIndex = getActiveChannels().indexOf(channel);
+  if (activeIndex !== -1) {
+    manualChannelOffset = activeIndex - currentHourSlot;
+  }
 }
 
 // --- Player ----------------------------------------------------------------
@@ -77,8 +134,8 @@ function buildLiveStreamEmbedUrl(youtubeChannelId) {
   return "https://www.youtube.com/embed/live_stream?" + embedParameters.toString();
 }
 
-function loadChannel(channelIndex) {
-  const channel = NEWS_CHANNELS[channelIndex];
+function loadChannel(channel) {
+  currentChannel = channel;
 
   clearTimeout(streamStartTimer);
   if (youtubePlayer) {
@@ -115,6 +172,11 @@ function loadChannel(channelIndex) {
   );
 
   updateNextUpLabels();
+  renderSourceList();
+}
+
+function loadChannelForCurrentSlot() {
+  loadChannel(getChannelForSlot(currentHourSlot));
 }
 
 function handlePlayerReady() {
@@ -142,15 +204,15 @@ function skipUnavailableChannel(reason) {
   clearTimeout(streamStartTimer);
   consecutiveFailedChannels += 1;
 
-  if (consecutiveFailedChannels >= NEWS_CHANNELS.length) {
+  if (consecutiveFailedChannels >= getActiveChannels().length) {
     channelStatusLabel.textContent = "No channels are streaming right now";
     return;
   }
 
-  const skippedChannelName = channelNameLabel.textContent;
+  const skippedChannelName = currentChannel.name;
   console.warn(`Skipping ${skippedChannelName}: ${reason}`);
   manualChannelOffset += 1;
-  loadChannel(getChannelIndexForSlot(currentHourSlot));
+  loadChannelForCurrentSlot();
   channelStatusLabel.textContent = `(${skippedChannelName} ${reason}, skipped)`;
 }
 
@@ -162,7 +224,47 @@ function stepChannel(direction) {
   }
   consecutiveFailedChannels = 0;
   manualChannelOffset += direction;
-  loadChannel(getChannelIndexForSlot(currentHourSlot));
+  loadChannelForCurrentSlot();
+}
+
+// Plays the chosen channel now (from the menu) and continues the rotation
+// from it.
+function watchChannelNow(channel) {
+  if (currentHourSlot === null) {
+    return;
+  }
+  // A channel picked to watch is put back in the rotation if it was out.
+  if (disabledChannelIds.has(channel.youtubeChannelId)) {
+    setChannelInRotation(channel, true);
+  }
+  consecutiveFailedChannels = 0;
+  pointRotationAt(channel);
+  loadChannel(channel);
+}
+
+// Ticks or unticks a channel in the menu.
+function setChannelInRotation(channel, isInRotation) {
+  if (isInRotation) {
+    disabledChannelIds.delete(channel.youtubeChannelId);
+  } else {
+    disabledChannelIds.add(channel.youtubeChannelId);
+  }
+  saveSetting(DISABLED_CHANNELS_STORAGE_KEY, [...disabledChannelIds]);
+
+  if (currentHourSlot === null) {
+    renderSourceList();
+    return;
+  }
+
+  // Keep the current channel playing if it's still in the rotation;
+  // otherwise move on to whatever the rotation now gives for this hour.
+  if (getActiveChannels().includes(currentChannel)) {
+    pointRotationAt(currentChannel);
+    updateNextUpLabels();
+    renderSourceList();
+  } else {
+    loadChannelForCurrentSlot();
+  }
 }
 
 // --- Sound -----------------------------------------------------------------
@@ -189,27 +291,58 @@ function syncSoundState() {
   unmuteButton.hidden = !playerIsMuted;
 }
 
-// --- Extras panel ----------------------------------------------------------
+// --- Menu and extras panel -------------------------------------------------
+
+function setMenuOpen(menuIsOpen) {
+  settingsMenu.hidden = !menuIsOpen;
+  menuButton.setAttribute("aria-expanded", String(menuIsOpen));
+}
+
+function toggleMenu() {
+  setMenuOpen(settingsMenu.hidden);
+}
 
 function setExtrasVisible(extrasVisible) {
   document.body.classList.toggle("extras-hidden", !extrasVisible);
-  try {
-    localStorage.setItem(EXTRAS_VISIBLE_STORAGE_KEY, String(extrasVisible));
-  } catch (storageError) {
-    // Storage can be blocked (private browsing etc.). The toggle still works.
-  }
+  showExtrasCheckbox.checked = extrasVisible;
+  saveSetting(EXTRAS_VISIBLE_STORAGE_KEY, extrasVisible);
 }
 
-function loadSavedExtrasVisibility() {
-  try {
-    return localStorage.getItem(EXTRAS_VISIBLE_STORAGE_KEY) !== "false";
-  } catch (storageError) {
-    return true;
-  }
-}
+// Rebuilds the list of channels in the menu: a tick box for whether each one
+// is in the rotation, and a button to watch it now.
+function renderSourceList() {
+  const activeChannels = getActiveChannels();
+  sourceList.replaceChildren();
 
-function toggleExtras() {
-  setExtrasVisible(document.body.classList.contains("extras-hidden"));
+  for (const channel of NEWS_CHANNELS) {
+    const isInRotation = !disabledChannelIds.has(channel.youtubeChannelId);
+    const isLastTickedChannel = isInRotation && activeChannels.length === 1;
+
+    const sourceRow = document.createElement("li");
+    sourceRow.classList.toggle("is-playing", channel === currentChannel);
+
+    const rotationCheckbox = document.createElement("input");
+    rotationCheckbox.type = "checkbox";
+    rotationCheckbox.checked = isInRotation;
+    rotationCheckbox.disabled = isLastTickedChannel; // Keep at least one.
+    rotationCheckbox.title = isLastTickedChannel
+      ? "At least one channel has to stay in the rotation"
+      : "Include in the hourly rotation";
+    rotationCheckbox.setAttribute("aria-label", "Include " + channel.name + " in the rotation");
+    rotationCheckbox.addEventListener("change", () =>
+      setChannelInRotation(channel, rotationCheckbox.checked)
+    );
+
+    const watchButton = document.createElement("button");
+    watchButton.type = "button";
+    watchButton.className = "watch-button";
+    watchButton.textContent = channel.name;
+    watchButton.title = "Watch " + channel.name + " now";
+    watchButton.addEventListener("click", () => watchChannelNow(channel));
+
+    sourceRow.append(rotationCheckbox, watchButton);
+    sourceList.appendChild(sourceRow);
+  }
 }
 
 function formatCountdown(remainingMilliseconds) {
@@ -220,8 +353,7 @@ function formatCountdown(remainingMilliseconds) {
 }
 
 function updateNextUpLabels() {
-  const nextChannelIndex = getChannelIndexForSlot(currentHourSlot + 1);
-  nextChannelNameLabel.textContent = NEWS_CHANNELS[nextChannelIndex].name;
+  nextChannelNameLabel.textContent = getChannelForSlot(currentHourSlot + 1).name;
   const nextSwitchTime = getSlotStartTime(currentHourSlot + 1);
   countdownLabel.textContent = formatCountdown(nextSwitchTime - Date.now());
 }
@@ -235,7 +367,7 @@ function tick() {
   if (hourSlotNow !== currentHourSlot) {
     currentHourSlot = hourSlotNow;
     consecutiveFailedChannels = 0;
-    loadChannel(getChannelIndexForSlot(currentHourSlot));
+    loadChannelForCurrentSlot();
   }
   updateNextUpLabels();
   syncSoundState();
@@ -249,16 +381,27 @@ function onYouTubeIframeAPIReady() {
 
 // --- Wiring ----------------------------------------------------------------
 
-setExtrasVisible(loadSavedExtrasVisibility());
+setExtrasVisible(loadSetting(EXTRAS_VISIBLE_STORAGE_KEY, true) !== false);
+setMenuOpen(false);
+renderSourceList();
 unmuteButton.hidden = false;
 
 unmuteButton.addEventListener("click", turnSoundOn);
 previousButton.addEventListener("click", () => stepChannel(-1));
 nextButton.addEventListener("click", () => stepChannel(+1));
-toggleExtrasButton.addEventListener("click", toggleExtras);
+menuButton.addEventListener("click", toggleMenu);
+showExtrasCheckbox.addEventListener("change", () =>
+  setExtrasVisible(showExtrasCheckbox.checked)
+);
 
 document.addEventListener("keydown", (keyEvent) => {
-  if (keyEvent.key === "h" || keyEvent.key === "H") toggleExtras();
+  // Don't steal keys while a menu control has focus (e.g. Space on a tick box).
+  if (keyEvent.target instanceof HTMLInputElement) {
+    return;
+  }
+  if (keyEvent.key === "h" || keyEvent.key === "H") setExtrasVisible(!showExtrasCheckbox.checked);
+  if (keyEvent.key === "m" || keyEvent.key === "M") toggleMenu();
+  if (keyEvent.key === "Escape") setMenuOpen(false);
   if (keyEvent.key === "ArrowLeft") stepChannel(-1);
   if (keyEvent.key === "ArrowRight") stepChannel(+1);
 });

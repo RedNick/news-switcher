@@ -7,7 +7,9 @@ A web page that plays a 24/7 live news stream full screen and switches to the ne
 ## Using it
 
 - The page starts muted (browsers block autoplay with sound). Click **Tap to turn sound on** once; later channels keep the sound on.
-- **☰** or the **H** key shows/hides the extras: current channel, next channel, countdown, and Prev/Next buttons.
+- **☰** (top middle) or the **M** key opens the settings menu:
+  - **Sources**: tick the channels you want in the hourly rotation, or click a channel's name to watch it now. Your choices are saved in your browser.
+  - **Show channel info and controls** (also the **H** key): the panel with the current channel, next channel, countdown and Prev/Next buttons.
 - **←** / **→** change channel. The hourly rotation then carries on from the channel you picked.
 - A channel that isn't streaming (or doesn't start within 30 seconds) is skipped for that hour.
 
