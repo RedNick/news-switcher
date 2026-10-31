@@ -23,3 +23,4 @@ Edit `channels.js`. Each channel is listed by its YouTube channel ID (starts wit
 - `styles.css`: styling
 - `channels.js`: channel list and switch timing
 - `news-switcher.js`: schedule, player and controls
+- `privacy.html`: privacy policy, linked from the Google Play listing of the Android app
