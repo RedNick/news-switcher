@@ -127,6 +127,16 @@ body.extras-hidden #extras-panel {
   cursor: pointer;
 }
 
+.menu-contact {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.menu-contact a {
+  color: #ff8a80;
+}
+
 .menu-hint {
   margin: 0 0 8px;
   font-size: 0.8rem;
