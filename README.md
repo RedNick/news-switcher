@@ -1,6 +1,6 @@
 # Hourly News Switcher
 
-A web page that plays a 24/7 live news stream full screen and switches to the next channel one minute before every clock hour, so each channel's top-of-hour headlines are already playing.
+A web page that plays a 24/7 live news stream full screen and switches to the next channel 20 seconds before every clock hour, so each channel's top-of-hour headlines are already playing.
 
 **Live page:** https://rednick.github.io/news-switcher/
 

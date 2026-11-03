@@ -15,8 +15,13 @@ const NEWS_CHANNELS = [
   { name: "France 24 English",    youtubeChannelId: "UCQfwfsi5VrQ8yKZ-UWmAEFg" },
   { name: "ABC News Australia",   youtubeChannelId: "UCVgO39Bk5sMo66-6o6Spn6Q" },
   { name: "NBC News NOW",         youtubeChannelId: "UCeY0bbntWzzVIaj2z3QigXg" },
+  { name: "NHK World",            youtubeChannelId: "UCSPEjw8F2nQDtmUKPFNF7_A" },
+  { name: "CBS News 24/7",        youtubeChannelId: "UC8p1vwvWtl6T73JiExfWs1g" },
+  { name: "Euronews",             youtubeChannelId: "UCSrZ3UV4jOidv8ppoVuvW9Q" },
+  { name: "TRT World",            youtubeChannelId: "UC7fWeaHhqgM4Ry-RMpM2YYw" },
+  { name: "Bloomberg",            youtubeChannelId: "UCIALMKvObZNtJ6AmdCLP7Lg" },
 ];
 
 // How many seconds before the top of each hour to switch, so the new channel
 // is already playing when its on-the-hour headlines start.
-const SECONDS_BEFORE_HOUR_TO_SWITCH = 60;
+const SECONDS_BEFORE_HOUR_TO_SWITCH = 20;
